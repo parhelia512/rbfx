@@ -12,9 +12,9 @@ env:
     - URHO3D_SSE=OFF
 addons:
   apt:
-    sources:
+    sources: &common_sources
       - deadsnakes
-    packages:
+    packages: &common_packages
       - libasound2-dev
       - libxrandr-dev
       - libgl1-mesa-dev
@@ -33,33 +33,55 @@ matrix:
     - &Linux-gcc
       os: linux
       compiler: gcc
+      addons:
+        apt:
+          sources: [*common_sources, 'ubuntu-toolchain-r-test']
+          packages: [*common_packages, 'g++-7', 'gcc-7']
       env:
+        - CXX_COMPILER=g++-7
+        - CC_COMPILER=gcc-7
         - BUILD_SHARED_LIBS=OFF
     - <<: *Linux-gcc
       env:
+        - CXX_COMPILER=g++-7
+        - CC_COMPILER=gcc-7
         - BUILD_SHARED_LIBS=ON
         - URHO3D_WITH_MONO=ON
     - &Linux-clang
       os: linux
       compiler: clang
+      addons:
+        apt:
+          sources: [*common_sources, 'ubuntu-toolchain-r-test', 'llvm-toolchain-xenial-6.0']
+          packages: [*common_packages, 'clang-6.0', 'g++-7', 'gcc-7']
       env:
+        - CXX_COMPILER=clang++-6.0
+        - CC_COMPILER=clang-6.0
         - BUILD_SHARED_LIBS=OFF
     - <<: *Linux-clang
       env:
+        - CXX_COMPILER=clang++-6.0
+        - CC_COMPILER=clang-6.0
         - BUILD_SHARED_LIBS=ON
         - URHO3D_WITH_MONO=ON
     - &MacOS
       os: osx
-      osx_image: xcode8.3
+      osx_image: xcode10
       compiler: clang
       env:
+        - CXX_COMPILER=clang++
+        - CC_COMPILER=clang
         - BUILD_SHARED_LIBS=OFF
     - <<: *MacOS
       env:
+        - CXX_COMPILER=clang++
+        - CC_COMPILER=clang
         - BUILD_SHARED_LIBS=ON
         - URHO3D_WITH_MONO=ON
     - <<: *Linux-gcc
       env:
+        - CXX_COMPILER=g++-7
+        - CC_COMPILER=gcc-7
         - BUILD_SHARED_LIBS=OFF
         - EMSCRIPTEN=1
         - CMAKE_TOOLCHAIN_FILE=CMake/Toolchains/Emscripten.cmake
@@ -84,6 +106,8 @@ matrix:
 
 before_install: |
   eval "${MATRIX_EVAL}"
+  export CXX=${CXX_COMPILER}
+  export CC=${CC_COMPILER}
   if [[ $TRAVIS_OS_NAME == 'linux' ]];
   then
       sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
