@@ -95,4 +95,6 @@ private:
     bool animate_;
     /// Group optimization flag.
     bool useGroups_;
+    /// Data components flag.
+    bool useDataComponents_;
 };

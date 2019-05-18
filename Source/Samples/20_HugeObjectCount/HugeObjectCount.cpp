@@ -34,6 +34,8 @@
 #include <Urho3D/Input/Input.h>
 #include <Urho3D/Resource/ResourceCache.h>
 #include <Urho3D/Scene/Scene.h>
+#include <Urho3D/Scene/DataComponent.h>
+#include <Urho3D/Scene/LogicComponent.h>
 #include <Urho3D/UI/Font.h>
 #include <Urho3D/UI/Text.h>
 #include <Urho3D/UI/UI.h>
@@ -44,15 +46,70 @@
 
 URHO3D_DEFINE_APPLICATION_MAIN(HugeObjectCount)
 
+class FastSwitcher
+{
+    URHO3D_DATA_COMPONENT(FastSwitcher);
+
+public:
+    static void RegisterAttributes(Context* context)
+    {
+        URHO3D_ATTRIBUTE("Phase Offset", float, Data().phaseOffset_, 0.0f, AM_DEFAULT);
+    }
+
+    void SetPhaseOffset(float phaseOffset) { phaseOffset_ = phaseOffset; time_ = phaseOffset; }
+
+    void Update(Node* node, float timeStep)
+    {
+        time_ += timeStep;
+        if (time_ > 1.0f)
+        {
+            time_ -= 1.0f;
+            auto model = node->GetComponent<StaticModel>();
+            model->SetEnabled(!model->IsEnabled());
+        }
+    }
+
+protected:
+    float phaseOffset_{};
+    float time_{};
+};
+
+ENTT_NAMED_TYPE(FastSwitcher);
+
+class ClassicSwitcher : public LogicComponent, public FastSwitcher
+{
+    URHO3D_OBJECT(ClassicSwitcher, LogicComponent);
+
+public:
+    ClassicSwitcher(Context* context) : LogicComponent(context) {}
+
+    static void RegisterObject(Context* context)
+    {
+        context->RegisterFactory<ClassicSwitcher>();
+
+        URHO3D_ATTRIBUTE("Phase Offset", float, phaseOffset_, 0.0f, AM_DEFAULT);
+    }
+
+    void Update(float timeStep) override
+    {
+        FastSwitcher::Update(node_, timeStep);
+    }
+};
+
 HugeObjectCount::HugeObjectCount(Context* context) :
     Sample(context),
     animate_(false),
-    useGroups_(false)
+    useGroups_(false),
+    useDataComponents_(false)
 {
 }
 
 void HugeObjectCount::Start()
 {
+    // Register things
+    ClassicSwitcher::RegisterObject(context_);
+    context_->RegisterDataComponentFactory<FastSwitcher>();
+
     // Execute base class startup
     Sample::Start();
 
@@ -107,9 +164,9 @@ void HugeObjectCount::CreateScene()
         light->SetColor(Color(0.7f, 0.35f, 0.0f));
 
         // Create individual box StaticModels in the scene
-        for (int y = -125; y < 125; ++y)
+        for (int y = -75; y < 75; ++y)
         {
-            for (int x = -125; x < 125; ++x)
+            for (int x = -75; x < 75; ++x)
             {
                 Node* boxNode = scene_->CreateChild("Box");
                 boxNode->SetPosition(Vector3(x * 0.3f, 0.0f, y * 0.3f));
@@ -117,6 +174,17 @@ void HugeObjectCount::CreateScene()
                 auto* boxObject = boxNode->CreateComponent<StaticModel>();
                 boxObject->SetModel(cache->GetResource<Model>("Models/Box.mdl"));
                 boxNodes_.push_back(SharedPtr<Node>(boxNode));
+
+                if (!useDataComponents_)
+                {
+                    auto rotator = boxNode->CreateComponent<ClassicSwitcher>();
+                    rotator->SetPhaseOffset(Random(0.0f, 2.0f));
+                }
+                else
+                {
+                    auto rotator = boxNode->CreateDataComponent<FastSwitcher>();
+                    rotator->SetPhaseOffset(Random(0.0f, 2.0f));
+                }
             }
         }
     }
@@ -147,6 +215,19 @@ void HugeObjectCount::CreateScene()
                 boxNode->SetScale(0.25f);
                 boxNodes_.push_back(SharedPtr<Node>(boxNode));
                 lastGroup->AddInstanceNode(boxNode);
+
+                if (!useDataComponents_)
+                {
+                    auto rotator = boxNode->CreateComponent<ClassicSwitcher>();
+                    rotator->SetPhaseOffset(Random(0.0f, 2.0f));
+                }
+                else
+                {
+                    context_->GetDataComponentFactory<FastSwitcher>()->CreateComponent(boxNode);
+                    auto rotator = boxNode->GetDataComponent<FastSwitcher>();
+                    //auto rotator = boxNode->CreateDataComponent<FastSwitcher>();
+                    rotator->SetPhaseOffset(Random(0.0f, 2.0f));
+                }
             }
         }
     }
@@ -262,8 +343,24 @@ void HugeObjectCount::HandleUpdate(StringHash eventType, VariantMap& eventData)
         CreateScene();
     }
 
+    // Toggle classic / data components
+    if (input->GetKeyPress(KEY_F))
+    {
+        useDataComponents_ = !useDataComponents_;
+        CreateScene();
+    }
+
     // Move the camera, scale movement with time step
     MoveCamera(timeStep);
+
+    // Update rotators
+    if (useDataComponents_)
+    {
+        scene_->EnumerateDataComponents<FastSwitcher>([&](Node* node, FastSwitcher& rotator)
+        {
+            rotator.Update(node, timeStep);
+        });
+    }
 
     // Animate scene if enabled
     if (animate_)
