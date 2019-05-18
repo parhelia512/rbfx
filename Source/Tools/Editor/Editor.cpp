@@ -35,6 +35,8 @@
 #include <Urho3D/SystemUI/Console.h>
 #include <Urho3D/LibraryInfo.h>
 #include <Urho3D/Core/CommandLine.h>
+#include <Urho3D/Scene/Scene.h>
+#include <Urho3D/Scene/DataComponent.h>
 
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_stdlib.h>
@@ -66,6 +68,46 @@ using namespace ui::litterals;
 
 URHO3D_DEFINE_APPLICATION_MAIN(Urho3D::Editor);
 
+// TODO(EnTT): Remove later
+// @{
+namespace Urho3D
+{
+
+struct Test_TransformComponent
+{
+    URHO3D_DATA_COMPONENT(Test_TransformComponent);
+
+    static void RegisterAttributes(Context* context)
+    {
+        URHO3D_ATTRIBUTE("Position", Vector3, Data().position_, Vector3::ZERO, AM_DEFAULT);
+        URHO3D_ATTRIBUTE("Rotation", Quaternion, Data().rotation_, Quaternion::IDENTITY, AM_DEFAULT);
+        URHO3D_ATTRIBUTE("Scale", Vector3, Data().scale_, Vector3::ZERO, AM_DEFAULT);
+    }
+
+    Vector3 position_;
+    Quaternion rotation_;
+    Vector3 scale_;
+};
+
+struct Test_NodeComponent
+{
+    URHO3D_DATA_COMPONENT(Test_NodeComponent);
+
+    static void RegisterAttributes(Context* context)
+    {
+        URHO3D_ATTRIBUTE("Name", ea::string, Data().name_, EMPTY_STRING, AM_DEFAULT);
+        URHO3D_ATTRIBUTE("Variables", VariantMap, Data().variables_, Variant::emptyVariantMap, AM_DEFAULT);
+    }
+
+    ea::string name_;
+    VariantMap variables_{};
+};
+
+}
+
+ENTT_NAMED_TYPE(Urho3D::Test_TransformComponent);
+ENTT_NAMED_TYPE(Urho3D::Test_NodeComponent);
+// @}
 
 namespace Urho3D
 {
@@ -73,6 +115,22 @@ namespace Urho3D
 Editor::Editor(Context* context)
     : Application(context)
 {
+    // TODO(EnTT): Remove later
+    // @{
+    context_->RegisterDataComponentFactory<Test_TransformComponent>();
+    context_->RegisterDataComponentFactory<Test_NodeComponent>();
+
+#if 0
+    auto factory = context_->GetDataComponentFactory("Test_TransformComponent");
+    Scene scene(context);
+    Node* node = scene.CreateChild();
+    node->CreateDataComponent<Test_TransformComponent>();
+    auto ser = factory->GetSerializableComponent(node);
+    auto ti = ser->GetTypeInfo();
+    auto attr = ser->GetAttributes();
+    auto n = ser->GetNumAttributes();
+#endif // 0
+    // @}
 }
 
 void Editor::Setup()

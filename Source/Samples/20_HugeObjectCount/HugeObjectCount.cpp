@@ -154,7 +154,7 @@ void HugeObjectCount::CreateScene()
     // Create the camera. Create it outside the scene so that we can clear the whole scene without affecting it
     if (!cameraNode_)
     {
-        cameraNode_ = new Node(context_);
+        cameraNode_ = context_->GetDefaultScene()->CreateChild();
         cameraNode_->SetPosition(Vector3(0.0f, 10.0f, -100.0f));
         auto* camera = cameraNode_->CreateComponent<Camera>();
         camera->SetFarClip(300.0f);

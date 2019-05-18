@@ -83,9 +83,4 @@ int RefCounted::WeakRefs() const
     return refCount_->weakRefs_ - 1;
 }
 
-void RefCounted::SetDeleter(std::function<void(RefCounted*)> deleter)
-{
-    deleter_ = std::move(deleter);
-}
-
 }

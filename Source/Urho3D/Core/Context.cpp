@@ -33,6 +33,8 @@
 #include "../IO/FileSystem.h"
 #include "../Resource/ResourceCache.h"
 #include "../Resource/Localization.h"
+#include "../Scene/DataComponent.h"
+#include "../Scene/Scene.h"
 #if URHO3D_NETWORK
 #include "../Network/Network.h"
 #endif
@@ -138,6 +140,10 @@ void RemoveNamedAttribute(ea::unordered_map<StringHash, ea::vector<AttributeInfo
 Context::Context() :
     eventHandler_(nullptr)
 {
+#ifndef MINI_URHO
+    defaultScene_ = MakeShared<Scene>(this);
+#endif
+
 #ifdef __ANDROID__
     // Always reset the random seed on Android, as the Urho3D library might not be unloaded between runs
     SetRandomSeed(1);
@@ -207,6 +213,13 @@ void Context::RegisterFactory(ObjectFactory* factory, const char* category)
     RegisterFactory(factory);
     if (CStringLength(category))
         objectCategories_[category].push_back(factory->GetType());
+}
+
+void Context::RegisterDataComponentFactory(DataComponentFactory* factory)
+{
+    factory->RegisterWrapperObject(this);
+    dataComponentFactories_[factory->GetComponentTypeIndex()] = factory;
+    sortedDataComponentFactories_[factory->GetComponentTypeName()] = factory;
 }
 
 void Context::RemoveFactory(StringHash type)
@@ -279,6 +292,18 @@ void Context::UpdateAttributeDefaultValue(StringHash objectType, const char* nam
     AttributeInfo* info = GetAttribute(objectType, name);
     if (info)
         info->defaultValue_ = defaultValue;
+}
+
+DataComponentFactory* Context::GetDataComponentFactory(unsigned typeIndex) const
+{
+    auto iter = dataComponentFactories_.find(typeIndex);
+    return iter != dataComponentFactories_.end() ? iter->second : nullptr;
+}
+
+DataComponentFactory* Context::GetDataComponentFactory(const ea::string& typeName) const
+{
+    auto iter = sortedDataComponentFactories_.find(typeName);
+    return iter != sortedDataComponentFactories_.end() ? iter->second : nullptr;
 }
 
 VariantMap& Context::GetEventDataMap()

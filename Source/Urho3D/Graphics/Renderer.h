@@ -495,8 +495,10 @@ private:
     SharedPtr<TextureCube> faceSelectCubeMap_;
     /// Indirection cube map for shadowed pointlights.
     SharedPtr<TextureCube> indirectionCubeMap_;
+    /// Scene with shadow cameras.
+    SharedPtr<Scene> shadowCameraScene_;
     /// Reusable scene nodes with shadow camera components.
-    ea::vector<SharedPtr<Node> > shadowCameraNodes_;
+    ea::vector<Node*> shadowCameraNodes_;
     /// Reusable occlusion buffers.
     ea::vector<SharedPtr<OcclusionBuffer> > occlusionBuffers_;
     /// Shadow maps by resolution.

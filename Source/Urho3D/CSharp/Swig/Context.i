@@ -4,6 +4,9 @@
 %ignore Urho3D::Context::GetObjectCategories;
 %ignore Urho3D::Context::GetSubsystems;
 %ignore Urho3D::Context::GetObjectFactories;
+%ignore Urho3D::Context::RegisterDataComponentFactory;
+%ignore Urho3D::Context::GetDataComponentFactories;
+%ignore Urho3D::Context::GetDataComponentFactory;
 
 
 // Extend Context with extra code

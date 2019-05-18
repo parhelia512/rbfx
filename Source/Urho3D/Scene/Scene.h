@@ -24,6 +24,8 @@
 
 #include <EASTL/unique_ptr.h>
 
+#include <entt/entity/registry.hpp>
+
 #include "../Core/Mutex.h"
 #include "../Resource/XMLElement.h"
 #include "../Resource/JSONFile.h"
@@ -82,6 +84,13 @@ struct AsyncProgress
     unsigned totalNodes_;
 };
 
+/// Internal component used to access Node instance by entity ID.
+struct NodeIndexComponent
+{
+    /// Node pointer. Raw pointer is used instead of weak pointer due to performance reasons.
+    Node* node_{};
+};
+
 /// Root scene node, represents the whole scene.
 class URHO3D_API Scene : public Node
 {
@@ -98,6 +107,26 @@ public:
     ~Scene() override;
     /// Register object factory. Node must be registered first.
     static void RegisterObject(Context* context);
+
+    /// Return internal registry.
+    entt::registry& GetRegistry() { return registry_; }
+    /// Whether the data component events are enabled.
+    bool AreDataComponentEventsEnabled() const { return dataComponentEventsEnabled_; }
+    /// Set whether the data component events are enabled. Data component events are suboptimal.
+    void SetDataComponentEventsEnabled(bool enabled);
+    /// Construct new node using internal registry.
+    SharedPtr<Node> ConstructNode();
+    /// Get node by entity ID.
+    Node* GetNodeByEntityID(entt::entity entity);
+    /// Enumerate all data components of given type.
+    template <class T, class Func>
+    void EnumerateDataComponents(Func func)
+    {
+        registry_.view<T, NodeIndexComponent>().each([&](entt::entity entity, T& component, NodeIndexComponent& nodeIndex)
+        {
+            func(nodeIndex.node_, component);
+        });
+    }
 
     /// Load from binary data. Removes all existing child nodes and components first. Return true if successful.
     bool Load(Deserializer& source) override;
@@ -244,6 +273,10 @@ public:
     void ComponentAdded(Component* component);
     /// Component removed. Remove from ID map.
     void ComponentRemoved(Component* component);
+    /// Data component added.
+    template <class T> void DataComponentAdded(entt::registry& registry, entt::entity entity, T& component);
+    /// Data component removed.
+    template <class T> void DataComponentRemoved(entt::registry& registry, entt::entity entity);
     /// Set node user variable reverse mappings.
     void SetVarNamesAttr(const ea::string& value);
     /// Return node user variable reverse mappings.
@@ -335,9 +368,17 @@ private:
     bool asyncLoading_;
     /// Threaded update flag.
     bool threadedUpdate_;
+
+private:
+    /// Internal scene registry.
+    entt::registry registry_;
+    /// Whether the data component events are enabled.
+    bool dataComponentEventsEnabled_{};
 };
 
 /// Register Scene library objects.
 void URHO3D_API RegisterSceneLibrary(Context* context);
 
 }
+
+ENTT_NAMED_TYPE(Urho3D::NodeIndexComponent);

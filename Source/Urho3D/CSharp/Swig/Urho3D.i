@@ -341,9 +341,18 @@ public:
 %ignore Urho3D::Node::SetOwner;
 %ignore Urho3D::Node::GetOwner;
 %ignore Urho3D::Component::CleanupConnection;
+%ignore Urho3D::Scene::GetRegistry;
+%ignore Urho3D::Scene::ConstructNode;
 %ignore Urho3D::Scene::CleanupConnection;
 %ignore Urho3D::Node::CleanupConnection;
 %ignore Urho3D::NodeImpl;
+%ignore Urho3D::Node::Node;
+%ignore Urho3D::Node::SetEntityInternal;
+%ignore Urho3D::Node::GetEntity;
+%ignore Urho3D::Node::SetSceneInternal;
+%ignore Urho3D::Node::ResetSceneInternal;
+%ignore Urho3D::Node::GetSerializableDataComponents;
+%ignore Urho3D::NodeIndexComponent;
 
 %include "Urho3D/Scene/AnimationDefs.h"
 %include "Urho3D/Scene/ValueAnimationInfo.h"

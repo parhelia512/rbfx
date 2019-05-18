@@ -26,14 +26,20 @@
 #include "../Math/Matrix3x4.h"
 #include "../Scene/Animatable.h"
 
+#include <entt/entity/entity.hpp>
+#include <entt/entity/fwd.hpp>
+
 namespace Urho3D
 {
 
 class Component;
+class DataComponentFactory;
+class DataComponentWrapper;
 class Connection;
 class Node;
 class Scene;
 class SceneResolver;
+class SerializableDataComponentPtr;
 
 struct NodeReplicationState;
 
@@ -77,8 +83,10 @@ class URHO3D_API Node : public Animatable
     friend class Connection;
 
 public:
+    /// Tag to prevent accidental node creation.
+    struct InternalTag {};
     /// Construct.
-    explicit Node(Context* context);
+    Node(Context* context, InternalTag);
     /// Destruct. Any child nodes are detached.
     ~Node() override;
     /// Register object factory.
@@ -334,6 +342,13 @@ public:
     /// Template version of removing all components of specific type.
     template <class T> void RemoveComponents();
 
+    /// Set node's entity. For internal usage only.
+    void SetEntityInternal(entt::entity entity) { entity_ = entity; }
+    /// Return node's entity.
+    entt::entity GetEntity() const { return entity_; }
+    /// Return whether the registry entity is valid.
+    bool IsRegistryValid() const { return scene_ && entity_ != entt::null; }
+
     /// Return ID.
     unsigned GetID() const { return id_; }
     /// Return whether the node is replicated or local to a scene.
@@ -572,12 +587,34 @@ public:
     /// Template version of checking whether has a specific component.
     template <class T> bool HasComponent() const;
 
+    /// Create data component.
+    template <class T, class ... Args> T* CreateDataComponent(Args && ... args);
+    /// Return data component (mutable).
+    template <class T> T* GetDataComponent();
+    /// Return data component (const).
+    template <class T> const T* GetDataComponent() const;
+    /// Return whether the node has given data component.
+    template <class T> bool HasDataComponent() const;
+    /// Destroy data component.
+    template <class T> bool RemoveDataComponent();
+
+    /// Create data component by name. Suboptimal.
+    bool CreateDataComponent(const ea::string& typeName);
+    /// Return whether the node has given data component. Suboptimal.
+    bool HasDataComponent(const ea::string& typeName) const;
+    /// Destroy data component by name. Suboptimal.
+    bool RemoveDataComponent(const ea::string& typeName);
+    /// Return data component wrappers. Suboptimal. Up to super-linear complexity. Return value resembles data components at the moment of call.
+    const ea::vector<SharedPtr<DataComponentWrapper>>& GetDataComponentWrappers();
+    /// Return data component wrapper. Suboptimal. Up to super-linear complexity.
+    SharedPtr<DataComponentWrapper> GetDataComponentWrapper(const ea::string& typeName);
+
     /// Set ID. Called by Scene.
     void SetID(unsigned id);
     /// Set scene. Called by Scene.
-    void SetScene(Scene* scene);
+    void SetSceneInternal(Scene* scene);
     /// Reset scene, ID and owner. Called by Scene.
-    void ResetScene();
+    void ResetSceneInternal();
     /// Set network position attribute.
     void SetNetPositionAttr(const Vector3& value);
     /// Set network rotation attribute.
@@ -663,6 +700,8 @@ private:
     void RemoveComponent(ea::vector<SharedPtr<Component> >::iterator i);
     /// Handle attribute animation update event.
     void HandleAttributeAnimationUpdate(StringHash eventType, VariantMap& eventData);
+    /// Return data component wrapper if it is already created. Suboptimal. Linear complexity.
+    SharedPtr<DataComponentWrapper> FindDataComponentWrapper(DataComponentFactory& factory) const;
 
     /// World-space transform matrix.
     mutable Matrix3x4 worldTransform_;
@@ -672,6 +711,8 @@ private:
     bool enabled_;
     /// Last SetEnabled flag before any SetDeepEnabled.
     bool enabledPrev_;
+    /// Whether the data component wrappers are dirty.
+    bool dataComponentWrappersDirty_{};
 
 protected:
     /// Network update queued flag.
@@ -694,6 +735,8 @@ private:
     mutable Quaternion worldRotation_;
     /// Components.
     ea::vector<SharedPtr<Component> > components_;
+    /// Data component wrappers.
+    ea::vector<SharedPtr<DataComponentWrapper>> dataComponentWrappers_;
     /// Child scene nodes.
     ea::vector<SharedPtr<Node> > children_;
     /// Node listeners.
@@ -704,6 +747,8 @@ private:
 protected:
     /// User variables.
     VariantMap vars_;
+    /// Entity ID.
+    entt::entity entity_ = entt::null;
 };
 
 template <class T> T* Node::CreateComponent(CreateMode mode, unsigned id)

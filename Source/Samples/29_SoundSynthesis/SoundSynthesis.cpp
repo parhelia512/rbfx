@@ -77,7 +77,7 @@ void SoundSynthesis::Start()
 void SoundSynthesis::CreateSound()
 {
     // Sound source needs a node so that it is considered enabled
-    node_ = new Node(context_);
+    node_ = context_->GetDefaultScene()->CreateChild();
     auto* source = node_->CreateComponent<SoundSource>();
 
     soundStream_ = new BufferedSoundStream();

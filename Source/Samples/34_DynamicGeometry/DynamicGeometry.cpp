@@ -264,7 +264,7 @@ void DynamicGeometry::CreateScene()
     }
 
     // Create the camera
-    cameraNode_ = new Node(context_);
+    cameraNode_ = context_->GetDefaultScene()->CreateChild();
     cameraNode_->SetPosition(Vector3(0.0f, 2.0f, -20.0f));
     auto* camera = cameraNode_->CreateComponent<Camera>();
     camera->SetFarClip(300.0f);

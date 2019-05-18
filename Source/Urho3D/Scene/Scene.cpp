@@ -35,6 +35,7 @@
 #include "../Resource/JSONFile.h"
 #include "../Scene/CameraViewport.h"
 #include "../Scene/Component.h"
+#include "../Scene/DataComponent.h"
 #include "../Scene/ObjectAnimation.h"
 #include "../Scene/ReplicationState.h"
 #include "../Scene/Scene.h"
@@ -59,7 +60,7 @@ static const float DEFAULT_SMOOTHING_CONSTANT = 50.0f;
 static const float DEFAULT_SNAP_THRESHOLD = 5.0f;
 
 Scene::Scene(Context* context) :
-    Node(context),
+    Node(context, InternalTag{}),
     replicatedNodeID_(FIRST_REPLICATED_ID),
     replicatedComponentID_(FIRST_REPLICATED_ID),
     localNodeID_(FIRST_LOCAL_ID),
@@ -89,11 +90,15 @@ Scene::~Scene()
     RemoveAllComponents();
     RemoveAllChildren();
 
+    // Remove self
+    NodeRemoved(this);
+
     // Remove scene reference and owner from all nodes that still exist
+    // TODO(EnTT): Assert here instead
     for (auto i = replicatedNodes_.begin(); i != replicatedNodes_.end(); ++i)
-        i->second->ResetScene();
+        i->second->ResetSceneInternal();
     for (auto i = localNodes_.begin(); i != localNodes_.end(); ++i)
-        i->second->ResetScene();
+        i->second->ResetSceneInternal();
 }
 
 void Scene::RegisterObject(Context* context)
@@ -112,6 +117,36 @@ void Scene::RegisterObject(Context* context)
     URHO3D_ATTRIBUTE("Next Local Component ID", unsigned, localComponentID_, FIRST_LOCAL_ID, AM_FILE | AM_NOEDIT);
     URHO3D_ATTRIBUTE("Variables", VariantMap, vars_, Variant::emptyVariantMap, AM_FILE); // Network replication of vars uses custom data
     URHO3D_MIXED_ACCESSOR_ATTRIBUTE("Variable Names", GetVarNamesAttr, SetVarNamesAttr, ea::string, EMPTY_STRING, AM_FILE | AM_NOEDIT);
+}
+
+void Scene::SetDataComponentEventsEnabled(bool enabled)
+{
+    if (dataComponentEventsEnabled_ != enabled)
+    {
+        dataComponentEventsEnabled_ = enabled;
+        for (const auto& item : context_->GetDataComponentFactories())
+        {
+            DataComponentFactory& factory = *item.second;
+            if (dataComponentEventsEnabled_)
+                factory.ConnectSceneToEvents(this);
+            else
+                factory.DisconnectSceneFromEvents(this);
+        }
+    }
+}
+
+SharedPtr<Node> Scene::ConstructNode()
+{
+    return MakeShared<Node>(context_, InternalTag{});
+}
+
+Node* Scene::GetNodeByEntityID(entt::entity entity)
+{
+    if (!registry_.valid(entity))
+        return nullptr;
+
+    NodeIndexComponent* nodeIndex = registry_.try_get<NodeIndexComponent>(entity);
+    return nodeIndex ? nodeIndex->node_ : nullptr;
 }
 
 bool Scene::Load(Deserializer& source)
@@ -918,7 +953,11 @@ void Scene::NodeAdded(Node* node)
     if (oldScene)
         oldScene->NodeRemoved(node);
 
-    node->SetScene(this);
+    // Re-assign scene and create entity
+    const entt::entity nodeEntity = registry_.create();
+    registry_.assign_or_replace<NodeIndexComponent>(nodeEntity, node);
+    node->SetEntityInternal(nodeEntity);
+    node->SetSceneInternal(this);
 
     // If the new node has an ID of zero (default), assign a replicated ID now
     unsigned id = node->GetID();
@@ -995,7 +1034,11 @@ void Scene::NodeRemoved(Node* node)
     else
         localNodes_.erase(id);
 
-    node->ResetScene();
+    // Reset scene and destroy entity
+    const entt::entity nodeEntity = node->GetEntity();
+    if (nodeEntity != entt::null)
+        registry_.destroy(nodeEntity);
+    node->ResetSceneInternal();
 
     // Remove node from tag cache
     if (!node->GetTags().empty())

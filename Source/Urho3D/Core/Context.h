@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <EASTL/map.h>
 #include <EASTL/unique_ptr.h>
 
 #include "../Container/Ptr.h"
@@ -30,6 +31,9 @@
 
 namespace Urho3D
 {
+
+class DataComponentFactory;
+class Scene;
 
 /// Tracking structure for event receivers.
 class URHO3D_API EventReceiverGroup : public RefCounted
@@ -90,6 +94,8 @@ public:
     void RemoveFactory(StringHash type);
     /// remove object factory.
     void RemoveFactory(StringHash type, const char* category);
+    /// Register a factory for data component type.
+    void RegisterDataComponentFactory(DataComponentFactory* factory);
     /// Register a subsystem.
     void RegisterSubsystem(Object* object);
     /// Remove a subsystem.
@@ -125,6 +131,8 @@ public:
     template <class T = void, class... Rest> void RemoveFactory();
     /// Template version of unregistering an object factory with category.
     template <class T = void, class... Rest> void RemoveFactory(const char* category);
+    /// Template version of registering a factory for data component type.
+    template <class T> void RegisterDataComponentFactory();
     /// Template version of registering subsystem.
     template <class T> T* RegisterSubsystem();
     /// Template version of removing a subsystem.
@@ -139,6 +147,13 @@ public:
     template <class T, class U> void CopyBaseAttributes();
     /// Template version of updating an object attribute's default value.
     template <class T> void UpdateAttributeDefaultValue(const char* name, const Variant& defaultValue);
+
+    /// Return data component factory for given EnTT type index.
+    DataComponentFactory* GetDataComponentFactory(unsigned typeIndex) const;
+    /// Return data component factory for given component type name.
+    DataComponentFactory* GetDataComponentFactory(const ea::string& typeName) const;
+    /// Return data component factory for given type.
+    template <class T> DataComponentFactory* GetDataComponentFactory() const;
 
     /// Return subsystem by type.
     Object* GetSubsystem(StringHash type) const;
@@ -160,6 +175,9 @@ public:
 
     /// Return all object categories.
     const ea::unordered_map<ea::string, ea::vector<StringHash> >& GetObjectCategories() const { return objectCategories_; }
+
+    /// Return all data component factories, ordered.
+    const ea::map<ea::string, SharedPtr<DataComponentFactory>>& GetDataComponentFactories() const { return sortedDataComponentFactories_; }
 
     /// Return active event sender. Null outside event handling.
     Object* GetEventSender() const;
@@ -249,6 +267,10 @@ public:
     inline Graphics* GetGraphics() const { return graphics_; }
     /// Return renderer subsystem.
     inline Renderer* GetRenderer() const { return renderer_; }
+#ifndef MINI_URHO
+    /// Return default scene.
+    Scene* GetDefaultScene() const { return defaultScene_; }
+#endif
 
     /// Register engine subsystem and cache it's pointer.
     void RegisterSubsystem(Engine* subsystem);
@@ -302,6 +324,10 @@ private:
 
     /// Object factories.
     ea::unordered_map<StringHash, SharedPtr<ObjectFactory> > factories_;
+    /// Data component factories indexed by type index.
+    ea::unordered_map<unsigned, SharedPtr<DataComponentFactory>> dataComponentFactories_;
+    /// Data component factories indexed by name and ordered.
+    ea::map<ea::string, SharedPtr<DataComponentFactory>> sortedDataComponentFactories_;
     /// Subsystems.
     ea::unordered_map<StringHash, SharedPtr<Object> > subsystems_;
     /// Attribute descriptions per object type.
@@ -322,6 +348,10 @@ private:
     ea::unordered_map<ea::string, ea::vector<StringHash> > objectCategories_;
     /// Variant map for global variables that can persist throughout application execution.
     VariantMap globalVars_;
+#ifndef MINI_URHO
+    /// Default scene.
+    SharedPtr<Scene> defaultScene_;
+#endif
 
     /// Cached pointer of engine susbsystem.
     WeakPtr<Engine> engine_;

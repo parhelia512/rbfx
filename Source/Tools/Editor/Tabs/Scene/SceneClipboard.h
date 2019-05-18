@@ -41,12 +41,15 @@ struct PasteResult
     {
         nodes_.push_back(other.nodes_);
         components_.push_back(other.components_);
+        dataComponents_.push_back(other.dataComponents_);
     }
 
     ///
     ea::vector<Node*> nodes_;
     ///
     ea::vector<Component*> components_;
+    ///
+    ea::vector<DataComponentWrapper*> dataComponents_;
 };
 
 class SceneClipboard : public Object
@@ -62,6 +65,8 @@ public:
     ///
     void Copy(Component* component);
     ///
+    void Copy(DataComponentWrapper* dataComponent);
+    ///
     void Copy(const ea::vector<Node*>& nodes);
     ///
     void Copy(const ea::vector<Component*>& components);
@@ -69,6 +74,8 @@ public:
     void Copy(const ea::vector<WeakPtr<Node>>& nodes);
     ///
     void Copy(const ea::hash_set<WeakPtr<Component>>& components);
+    ///
+    void Copy(const ea::hash_set<WeakPtr<DataComponentWrapper>>& dataComponents);
     ///
     PasteResult Paste(Node* node);
     ///
@@ -79,12 +86,16 @@ public:
     bool HasNodes() const { return !nodes_.empty(); }
     ///
     bool HasComponents() const { return !components_.empty(); }
+    ///
+    bool HasDataComponents() const { return !dataComponents_.empty(); }
 
 protected:
     ///
     ea::vector<VectorBuffer> nodes_;
     ///
     ea::vector<VectorBuffer> components_;
+    ///
+    ea::vector<VectorBuffer> dataComponents_;
     ///
     Undo::Manager& undo_;
 };

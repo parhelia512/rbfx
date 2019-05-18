@@ -36,6 +36,7 @@
 #include <Urho3D/Scene/SceneEvents.h>
 #include <Urho3D/Scene/SceneManager.h>
 #include <Urho3D/Scene/SceneMetadata.h>
+#include <Urho3D/Scene/DataComponent.h>
 #include <Urho3D/SystemUI/DebugHud.h>
 
 #include <IconFontCppHeaders/IconsFontAwesome5.h>
@@ -138,6 +139,7 @@ SceneTab::SceneTab(Context* context)
             cameraPreviewViewport_->SetScene(scene);
             viewport_->SetScene(scene);
             selectedComponents_.clear();
+            selectedDataComponents_.clear();
             gizmo_.UnselectAll();
         }
     });
@@ -430,6 +432,16 @@ void SceneTab::Select(Component* component)
     SendEvent(E_EDITORSELECTIONCHANGED, P_SCENE, GetScene());
 }
 
+void SceneTab::Select(DataComponentWrapper* dataComponent)
+{
+    if (dataComponent == nullptr || dataComponent->IsComponentExpired())
+        return;
+
+    selectedDataComponents_.insert(WeakPtr<DataComponentWrapper>(dataComponent));
+    using namespace EditorSelectionChanged;
+    SendEvent(E_EDITORSELECTIONCHANGED, P_SCENE, GetScene());
+}
+
 void SceneTab::Select(ea::vector<Node*> nodes)
 {
     if (nodes.empty())
@@ -466,6 +478,18 @@ void SceneTab::Unselect(Component* component)
     }
 }
 
+void SceneTab::Unselect(DataComponentWrapper* dataComponent)
+{
+    if (dataComponent == nullptr || dataComponent->IsComponentExpired())
+        return;
+
+    if (selectedDataComponents_.erase(WeakPtr<DataComponentWrapper>(dataComponent)))
+    {
+        using namespace EditorSelectionChanged;
+        SendEvent(E_EDITORSELECTIONCHANGED, P_SCENE, GetScene());
+    }
+}
+
 void SceneTab::ToggleSelection(Node* node)
 {
     if (node == nullptr)
@@ -491,10 +515,28 @@ void SceneTab::ToggleSelection(Component* component)
     SendEvent(E_EDITORSELECTIONCHANGED, P_SCENE, GetScene());
 }
 
+void SceneTab::ToggleSelection(DataComponentWrapper* dataComponent)
+{
+    if (dataComponent == nullptr || dataComponent->IsComponentExpired())
+        return;
+
+    WeakPtr<DataComponentWrapper> dataComponentPtr(dataComponent);
+    if (selectedDataComponents_.contains(dataComponentPtr))
+        selectedDataComponents_.erase(dataComponentPtr);
+    else
+        selectedDataComponents_.insert(dataComponentPtr);
+
+    using namespace EditorSelectionChanged;
+    SendEvent(E_EDITORSELECTIONCHANGED, P_SCENE, GetScene());
+}
+
 void SceneTab::UnselectAll()
 {
-    bool hadComponents = !selectedComponents_.empty();
+    const bool hadComponents = !selectedComponents_.empty() || !selectedDataComponents_.empty();
+
     selectedComponents_.clear();
+    selectedDataComponents_.clear();
+
     if (gizmo_.UnselectAll() || hadComponents)
     {
         using namespace EditorSelectionChanged;
@@ -575,6 +617,14 @@ bool SceneTab::IsSelected(Component* component) const
     return selectedComponents_.contains(WeakPtr<Component>(component));
 }
 
+bool SceneTab::IsSelected(DataComponentWrapper* dataComponent) const
+{
+    if (dataComponent == nullptr || dataComponent->IsComponentExpired())
+        return false;
+
+    return selectedDataComponents_.contains(WeakPtr<DataComponentWrapper>(dataComponent));
+}
+
 void SceneTab::OnNodeSelectionChanged()
 {
     using namespace EditorSelectionChanged;
@@ -583,7 +633,7 @@ void SceneTab::OnNodeSelectionChanged()
 void SceneTab::RenderInspector(const char* filter)
 {
     const auto& selection = GetSelection();
-    bool singleNodeMode = selection.size() == 1 && selectedComponents_.empty();
+    bool singleNodeMode = selection.size() == 1 && selectedComponents_.empty() && selectedDataComponents_.empty();
     for (auto& node : GetSelection())
     {
         if (node.Expired())
@@ -596,6 +646,11 @@ void SceneTab::RenderInspector(const char* filter)
                 if (!component->IsTemporary())
                     RenderAttributes(component.Get(), filter, &inspector_);
             }
+            for (auto& dataComponent : node->GetDataComponentWrappers())
+            {
+                if (!dataComponent->IsTemporary())
+                    RenderAttributes(dataComponent.Get(), filter, &inspector_);
+            }
         }
     }
 
@@ -606,6 +661,13 @@ void SceneTab::RenderInspector(const char* filter)
             if (component.Expired())
                 continue;
             RenderAttributes(component.Get(), filter, &inspector_);
+        }
+
+        for (auto& dataComponent : selectedDataComponents_)
+        {
+            if (dataComponent.Expired() || dataComponent->IsComponentExpired())
+                continue;
+            RenderAttributes(dataComponent.Get(), filter, &inspector_);
         }
     }
 }
@@ -714,7 +776,7 @@ void SceneTab::RenderNodeTree(Node* node)
         if (!nodeRef.Expired())
         {
             ea::vector<SharedPtr<Component>> components = node->GetComponents();
-            for (const auto& component: components)
+            for (const auto& component : components)
             {
                 if (component->IsTemporary())
                     continue;
@@ -724,8 +786,7 @@ void SceneTab::RenderNodeTree(Node* node)
                 ui::Image(component->GetTypeName());
                 ui::SameLine();
 
-                bool selected = selectedComponents_.contains(component);
-                ui::Selectable(component->GetTypeName().c_str(), selected);
+                ui::Selectable(component->GetTypeName().c_str(), IsSelected(component));
 
                 if (ui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup))
                 {
@@ -746,6 +807,42 @@ void SceneTab::RenderNodeTree(Node* node)
                     }
                 }
 
+                RenderNodeContextMenu();
+
+                ui::PopID();
+            }
+
+            const auto dataComponents = node->GetDataComponentWrappers();
+            for (const auto& dataComponent : dataComponents)
+            {
+                if (dataComponent->IsTemporary())
+                    continue;
+
+                ui::PushID(dataComponent);
+
+                ui::Image(dataComponent->GetTypeName());
+                ui::SameLine();
+
+                ui::Selectable(dataComponent->GetTypeName().c_str(), IsSelected(dataComponent));
+
+                if (ui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup))
+                {
+                    if (ui::IsMouseClicked(MOUSEB_LEFT))
+                    {
+                        if (!GetInput()->GetKeyDown(KEY_CTRL))
+                            UnselectAll();
+                        Select(dataComponent);
+                    }
+                    else if (ui::IsMouseClicked(MOUSEB_RIGHT))
+                    {
+                        if (!IsSelected(dataComponent))
+                        {
+                            UnselectAll();
+                            Select(dataComponent);
+                        }
+                        ui::OpenPopupEx(ui::GetID("Node context menu"));
+                    }
+                }
 
                 RenderNodeContextMenu();
 
@@ -755,7 +852,7 @@ void SceneTab::RenderNodeTree(Node* node)
             // Do not use element->GetChildren() because child may be deleted during this loop.
             ea::vector<Node*> children;
             node->GetChildren(children);
-            for (Node* child : children) 
+            for (Node* child : children)
             {
                 // ensure the tree is expanded to the currently selected node if there is one node selected.
                 if (GetSelection().size() == 1)
@@ -791,6 +888,16 @@ void SceneTab::RemoveSelection()
     {
         if (!component.Expired())
             component->Remove();
+    }
+
+    {
+        DataComponentEventScope eventScope(GetScene());
+        for (auto& dataComponent : selectedDataComponents_)
+        {
+
+            if (!dataComponent.Expired() && !dataComponent->IsComponentExpired())
+                dataComponent->Remove();
+        }
     }
 
     for (auto& selected : GetSelection())
@@ -892,6 +999,7 @@ void SceneTab::SaveState(SceneState& destination)
     // Preserve current selection
     savedNodeSelection_.clear();
     savedComponentSelection_.clear();
+    savedDataComponentSelection_.clear();
     for (auto& node : GetSelection())
     {
         if (node)
@@ -901,6 +1009,11 @@ void SceneTab::SaveState(SceneState& destination)
     {
         if (component)
             savedComponentSelection_.push_back(component->GetID());
+    }
+    for (auto& component : selectedDataComponents_)
+    {
+        if (component && !component->IsComponentExpired())
+            savedDataComponentSelection_.emplace_back(component->GetNode()->GetID(), component->GetComponentType());
     }
 
     destination.Save(GetScene(), rootElement_);
@@ -936,18 +1049,30 @@ void SceneTab::RestoreState(SceneState& source)
 
     // Restore previous selection
     UnselectAll();
+
     for (unsigned id : savedNodeSelection_)
         Select(GetScene()->GetNode(id));
 
     for (unsigned id : savedComponentSelection_)
         Select(GetScene()->GetComponent(id));
+
+    for (const auto& item : savedDataComponentSelection_)
+    {
+        if (Node* node = GetScene()->GetNode(item.first))
+            Select(node->GetDataComponentWrapper(item.second));
+    }
+
     savedNodeSelection_.clear();
     savedComponentSelection_.clear();
+    savedDataComponentSelection_.clear();
 }
 
 void SceneTab::RenderNodeContextMenu()
 {
-    if ((!GetSelection().empty() || !selectedComponents_.empty()) && ui::BeginPopup("Node context menu"))
+    if (GetSelection().empty() && selectedComponents_.empty() && savedDataComponentSelection_.empty())
+        return;
+
+    if (ui::BeginPopup("Node context menu"))
     {
         Input* input = GetSubsystem<Input>();
         if (input->GetKeyPress(KEY_ESCAPE) || !input->IsMouseVisible())
@@ -1007,8 +1132,10 @@ void SceneTab::RenderNodeContextMenu()
                                     if (!selectedNode.Expired())
                                     {
                                         if (selectedNode->CreateComponent(StringHash(component),
-                                                                          alternative ? LOCAL : REPLICATED))
+                                            alternative ? LOCAL : REPLICATED))
+                                        {
                                             openHierarchyNodes_.push_back(selectedNode);
+                                        }
                                     }
                                 }
                             }
@@ -1016,6 +1143,36 @@ void SceneTab::RenderNodeContextMenu()
                         ui::EndMenu();
                     }
                 }
+
+                if (ui::BeginMenu("Data Components"))
+                {
+                    auto dataComponentFactories = context_->GetDataComponentFactories();
+                    for (const auto& elem : dataComponentFactories)
+                    {
+                        DataComponentFactory& factory = *elem.second;
+                        const ea::string& dataComponent = factory.GetComponentTypeName();
+
+                        ui::Image(dataComponent);
+                        ui::SameLine();
+                        if (ui::MenuItem(dataComponent.c_str()))
+                        {
+                            DataComponentEventScope eventScope(GetScene());
+                            for (auto& selectedNode : GetSelection())
+                            {
+                                if (!selectedNode.Expired())
+                                {
+                                    if (selectedNode->CreateDataComponent(dataComponent))
+                                    {
+                                        openHierarchyNodes_.push_back(selectedNode);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ui::EndMenu();
+                }
+
                 ui::EndMenu();
             }
             ui::Separator();
@@ -1260,6 +1417,11 @@ void SceneTab::CopySelection()
         clipboard_.Clear();
         clipboard_.Copy(selectedComponents_);
     }
+    else if (!selectedDataComponents_.empty())
+    {
+        clipboard_.Clear();
+        clipboard_.Copy(selectedDataComponents_);
+    }
 }
 
 void SceneTab::PasteNextToSelection()
@@ -1289,6 +1451,9 @@ void SceneTab::PasteNextToSelection()
 
     for (Component* component : result.components_)
         selectedComponents_.insert(WeakPtr<Component>(component));
+
+    for (DataComponentWrapper* dataComponent : result.dataComponents_)
+        selectedDataComponents_.insert(WeakPtr<DataComponentWrapper>(dataComponent));
 }
 
 void SceneTab::PasteIntoSelection()
@@ -1307,13 +1472,16 @@ void SceneTab::PasteIntoSelection()
 
     for (Component* component : result.components_)
         selectedComponents_.insert(WeakPtr<Component>(component));
+
+    for (DataComponentWrapper* dataComponent : result.dataComponents_)
+        selectedDataComponents_.insert(WeakPtr<DataComponentWrapper>(dataComponent));
 }
 
 void SceneTab::PasteIntuitive()
 {
     if (clipboard_.HasNodes())
         PasteNextToSelection();
-    else if (clipboard_.HasComponents())
+    else if (clipboard_.HasComponents() || clipboard_.HasDataComponents())
         PasteIntoSelection();
 }
 
@@ -1386,6 +1554,11 @@ void SceneTab::RenderDebugInfo()
     {
         if (component)
             renderDebugInfo(component);
+    }
+
+    for (auto& dataComponent : selectedDataComponents_)
+    {
+        // TODO(EnTT): Do we want to implement it?
     }
 }
 

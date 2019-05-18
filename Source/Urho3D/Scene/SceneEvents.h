@@ -142,6 +142,22 @@ URHO3D_EVENT(E_COMPONENTREMOVED, ComponentRemoved)
     URHO3D_PARAM(P_COMPONENT, Component);          // Component pointer
 }
 
+/// A data component has been created to a node. Should be enabled in Scene beforehand.
+URHO3D_EVENT(E_DATACOMPONENTADDED, DataComponentAdded)
+{
+    URHO3D_PARAM(P_SCENE, Scene);                           // Scene pointer
+    URHO3D_PARAM(P_NODE, Node);                             // Node pointer
+    URHO3D_PARAM(P_DATACOMPONENTTYPE, DataComponentType);   // String with component type
+}
+
+/// A data component is about to be removed from a node. Should be enabled in Scene beforehand.
+URHO3D_EVENT(E_DATACOMPONENTREMOVED, DataComponentRemoved)
+{
+    URHO3D_PARAM(P_SCENE, Scene);                           // Scene pointer
+    URHO3D_PARAM(P_NODE, Node);                             // Node pointer
+    URHO3D_PARAM(P_DATACOMPONENTTYPE, DataComponentType);   // String with component type
+}
+
 /// A node's name has changed.
 URHO3D_EVENT(E_NODENAMECHANGED, NodeNameChanged)
 {

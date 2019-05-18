@@ -102,22 +102,30 @@ public:
     void Select(Node* node);
     /// Add a component to selection.
     void Select(Component* component);
+    /// Add data component to selection.
+    void Select(DataComponentWrapper* dataComponent);
     /// Add multiple nodes to selection.
     void Select(ea::vector<Node*> nodes);
     /// Remove a node from selection.
     void Unselect(Node* node);
     /// Remove a component from selection.
     void Unselect(Component* component);
+    /// Remove a data component from selection.
+    void Unselect(DataComponentWrapper* dataComponent);
     /// Select if node was not selected or unselect if node was selected.
     void ToggleSelection(Node* node);
     /// Select if component was not selected or unselect if component was selected.
     void ToggleSelection(Component* component);
+    /// Select if data component was not selected or unselect if data component was selected.
+    void ToggleSelection(DataComponentWrapper* dataComponent);
     /// Unselect all nodes.
     void UnselectAll();
     /// Return true if node is selected.
     bool IsSelected(Node* node) const;
     /// Return true if component is selected.
     bool IsSelected(Component* component) const;
+    /// Return true if data component is selected.
+    bool IsSelected(DataComponentWrapper* dataComponent) const;
     /// Return list of selected nodes.
     const ea::vector<WeakPtr<Node>>& GetSelection() const;
     /// Removes component if it was selected in inspector, otherwise removes selected scene nodes.
@@ -191,8 +199,10 @@ protected:
     SharedPtr<Viewport> viewport_;
     /// Gizmo used for manipulating scene elements.
     Gizmo gizmo_;
-    /// Current selected component displayed in inspector.
+    /// Current selected components displayed in inspector.
     ea::hash_set<WeakPtr<Component>> selectedComponents_;
+    /// Current selected data components displayed in inspector.
+    ea::hash_set<WeakPtr<DataComponentWrapper>> selectedDataComponents_;
     /// Flag indicating that mouse is hovering scene viewport.
     bool mouseHoversViewport_ = false;
     /// Nodes whose entries in hierarchy tree should be opened on next frame.
@@ -211,6 +221,8 @@ protected:
     ea::vector<unsigned> savedNodeSelection_;
     /// List of component IDs that are saved when scene state is saved. Component selection will be restored using these.
     ea::vector<unsigned> savedComponentSelection_;
+    /// List of data components in the form (node ID, component name) that are saved when scene state is saved. Data component selection will be restored using these.
+    ea::vector<ea::pair<unsigned, ea::string>> savedDataComponentSelection_;
     ///
     SharedPtr<UI> offScreenUI_;
     /// Root element which contains edited UI.

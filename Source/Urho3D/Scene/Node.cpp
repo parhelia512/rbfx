@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright (c) 2008-2019 the Urho3D project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,6 +29,7 @@
 #include "../Resource/XMLFile.h"
 #include "../Resource/JSONFile.h"
 #include "../Scene/Component.h"
+#include "../Scene/DataComponent.h"
 #include "../Scene/ObjectAnimation.h"
 #include "../Scene/ReplicationState.h"
 #include "../Scene/Scene.h"
@@ -45,7 +46,7 @@
 namespace Urho3D
 {
 
-Node::Node(Context* context) :
+Node::Node(Context* context, InternalTag) :
     Animatable(context),
     worldTransform_(Matrix3x4::IDENTITY),
     dirty_(false),
@@ -76,8 +77,6 @@ Node::~Node()
 
 void Node::RegisterObject(Context* context)
 {
-    context->RegisterFactory<Node>();
-
     URHO3D_ACCESSOR_ATTRIBUTE("Is Enabled", IsEnabled, SetEnabled, bool, true, AM_DEFAULT);
     URHO3D_ACCESSOR_ATTRIBUTE("Name", GetName, SetName, ea::string, EMPTY_STRING, AM_DEFAULT);
     URHO3D_ACCESSOR_ATTRIBUTE("Tags", GetTags, SetTags, StringVector, Variant::emptyStringVector, AM_DEFAULT);
@@ -1433,20 +1432,121 @@ Component* Node::GetParentComponent(StringHash type, bool fullTraversal) const
     return nullptr;
 }
 
+bool Node::CreateDataComponent(const ea::string& typeName)
+{
+    if (!IsRegistryValid())
+    {
+        assert(0);
+        return false;
+    }
+
+    if (DataComponentFactory* factory = context_->GetDataComponentFactory(typeName))
+    {
+        factory->CreateComponent(this);
+        return true;
+    }
+    return false;
+}
+
+bool Node::HasDataComponent(const ea::string& typeName) const
+{
+    if (!IsRegistryValid())
+    {
+        assert(0);
+        return false;
+    }
+
+    if (DataComponentFactory* factory = context_->GetDataComponentFactory(typeName))
+        return factory->HasComponent(this);
+    return false;
+}
+
+bool Node::RemoveDataComponent(const ea::string& typeName)
+{
+    if (!IsRegistryValid())
+    {
+        assert(0);
+        return false;
+    }
+
+    if (DataComponentFactory* factory = context_->GetDataComponentFactory(typeName))
+    {
+        if (factory->RemoveComponent(this))
+            return true;
+    }
+    return false;
+}
+
+SharedPtr<DataComponentWrapper> Node::FindDataComponentWrapper(DataComponentFactory& factory) const
+{
+    auto iter = ea::find_if(dataComponentWrappers_.begin(), dataComponentWrappers_.end(),
+        [&](DataComponentWrapper* wrapper)
+    {
+        return !wrapper->IsComponentExpired() && wrapper->GetFactory() == &factory;
+    });
+
+    return iter != dataComponentWrappers_.end() ? *iter : nullptr;
+}
+
+const ea::vector<SharedPtr<DataComponentWrapper>>& Node::GetDataComponentWrappers()
+{
+    if (!IsRegistryValid())
+    {
+        assert(0);
+        dataComponentWrappers_.clear();
+        return dataComponentWrappers_;
+    }
+
+    if (dataComponentWrappersDirty_)
+    {
+        dataComponentWrappersDirty_ = false;
+
+        ea::vector<SharedPtr<DataComponentWrapper>> newDataComponents;
+        for (const auto& item : context_->GetDataComponentFactories())
+        {
+            DataComponentFactory& factory = *item.second;
+            if (factory.HasComponent(this))
+            {
+                auto wrapper = FindDataComponentWrapper(factory);
+                if (!wrapper)
+                    wrapper = factory.CreateWrapper(this);
+
+                newDataComponents.push_back(wrapper);
+            }
+        }
+        ea::swap(newDataComponents, dataComponentWrappers_);
+    }
+
+    return dataComponentWrappers_;
+}
+
+SharedPtr<DataComponentWrapper> Node::GetDataComponentWrapper(const ea::string& typeName)
+{
+    // Validate wrappers
+    GetDataComponentWrappers();
+
+    // Try to find wrapper for given factory
+    if (DataComponentFactory* factory = context_->GetDataComponentFactory(typeName))
+        return FindDataComponentWrapper(*factory);
+
+    return nullptr;
+}
+
 void Node::SetID(unsigned id)
 {
     id_ = id;
 }
 
-void Node::SetScene(Scene* scene)
+void Node::SetSceneInternal(Scene* scene)
 {
     scene_ = scene;
 }
 
-void Node::ResetScene()
+void Node::ResetSceneInternal()
 {
     SetID(0);
-    SetScene(nullptr);
+    SetSceneInternal(nullptr);
+    SetEntityInternal(entt::null);
     SetOwner(nullptr);
 }
 
@@ -1801,7 +1901,7 @@ void Node::MarkReplicationDirty()
 
 Node* Node::CreateChild(unsigned id, CreateMode mode, bool temporary)
 {
-    SharedPtr<Node> newNode(context_->CreateObject<Node>());
+    SharedPtr<Node> newNode = scene_->ConstructNode();
     newNode->SetTemporary(temporary);
 
     // If zero ID specified, or the ID is already taken, let the scene assign

@@ -30,6 +30,7 @@
 #include <Urho3D/Resource/XMLFile.h>
 #include <Urho3D/Scene/Node.h>
 #include <Urho3D/Scene/Scene.h>
+#include <Urho3D/Scene/DataComponent.h> // TODO(EnTT): Move this header and implementations tp *.cpp
 #include <Urho3D/UI/UI.h>
 #include <Urho3D/UI/UIElement.h>
 
@@ -133,7 +134,8 @@ public:
         {
             nodeData.Seek(0);
             auto nodeID = nodeData.ReadUInt();
-            SharedPtr<Node> node(new Node(parent->GetContext()));
+            // TODO(EnTT): Revisit this place
+            SharedPtr<Node> node(new Node(parent->GetContext(), Node::InternalTag{}));
             node->SetID(nodeID);
             parent->AddChild(node, parentIndex);
             nodeData.Seek(0);
@@ -321,6 +323,89 @@ public:
         if (node != nullptr && component != nullptr)
         {
             node->RemoveComponent(component);
+        }
+    }
+};
+
+class URHO3D_TOOLBOX_API CreateDataComponentAction : public EditAction
+{
+    unsigned nodeID;
+    VectorBuffer componentData;
+    WeakPtr<Scene> editorScene;
+
+public:
+    explicit CreateDataComponentAction(DataComponentWrapper* dataComponent)
+        : editorScene(dataComponent->GetScene())
+    {
+        nodeID = dataComponent->GetNode()->GetID();
+        dataComponent->Save(componentData);
+    }
+
+    void Undo() override
+    {
+        if (Node* node = editorScene->GetNode(nodeID))
+        {
+            componentData.Seek(0);
+            const ea::string componentType = componentData.ReadString();
+            node->RemoveDataComponent(componentType);
+        }
+    }
+
+    void Redo() override
+    {
+        if (Node* node = editorScene->GetNode(nodeID))
+        {
+            componentData.Seek(0);
+            const ea::string componentType = componentData.ReadString();
+            if (node->CreateDataComponent(componentType))
+            {
+                DataComponentWrapper* dataComponent = node->GetDataComponentWrapper(componentType);
+                assert(dataComponent);
+                if (dataComponent->Load(componentData))
+                    ; // FocusComponent(component);
+            }
+        }
+    }
+
+};
+
+class URHO3D_TOOLBOX_API DeleteDataComponentAction : public EditAction
+{
+    unsigned nodeID;
+    VectorBuffer componentData;
+    WeakPtr<Scene> editorScene;
+
+public:
+    DeleteDataComponentAction(DataComponentWrapper* dataComponent)
+        : editorScene(dataComponent->GetScene())
+    {
+        nodeID = dataComponent->GetNode()->GetID();
+        dataComponent->Save(componentData);
+    }
+
+    void Undo() override
+    {
+        if (Node* node = editorScene->GetNode(nodeID))
+        {
+            componentData.Seek(0);
+            const ea::string componentType = componentData.ReadString();
+            if (node->CreateDataComponent(componentType))
+            {
+                DataComponentWrapper* dataComponent = node->GetDataComponentWrapper(componentType);
+                assert(dataComponent);
+                if (dataComponent->Load(componentData))
+                    ; // FocusComponent(component);
+            }
+        }
+    }
+
+    void Redo() override
+    {
+        if (Node* node = editorScene->GetNode(nodeID))
+        {
+            componentData.Seek(0);
+            const ea::string componentType = componentData.ReadString();
+            node->RemoveDataComponent(componentType);
         }
     }
 };

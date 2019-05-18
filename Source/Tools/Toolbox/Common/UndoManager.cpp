@@ -95,9 +95,11 @@ void Manager::Connect(Scene* scene)
     {
         if (!trackingEnabled_)
             return;
+
         auto* node = dynamic_cast<Node*>(args[NodeAdded::P_NODE].GetPtr());
         if (node->HasTag("__EDITOR_OBJECT__"))
             return;
+
         Track<CreateNodeAction>(node);
     });
 
@@ -105,9 +107,11 @@ void Manager::Connect(Scene* scene)
     {
         if (!trackingEnabled_)
             return;
+
         auto* node = dynamic_cast<Node*>(args[NodeRemoved::P_NODE].GetPtr());
         if (node->HasTag("__EDITOR_OBJECT__"))
             return;
+
         Track<DeleteNodeAction>(node);
     });
 
@@ -115,10 +119,12 @@ void Manager::Connect(Scene* scene)
     {
         if (!trackingEnabled_)
             return;
+
         auto* node = dynamic_cast<Node*>(args[ComponentAdded::P_NODE].GetPtr());
         auto* component = dynamic_cast<Component*>(args[ComponentAdded::P_COMPONENT].GetPtr());
         if (node->HasTag("__EDITOR_OBJECT__"))
             return;
+
         Track<CreateComponentAction>(component);
     });
 
@@ -126,11 +132,41 @@ void Manager::Connect(Scene* scene)
     {
         if (!trackingEnabled_)
             return;
+
         auto* node = dynamic_cast<Node*>(args[ComponentRemoved::P_NODE].GetPtr());
         auto* component = dynamic_cast<Component*>(args[ComponentRemoved::P_COMPONENT].GetPtr());
         if (node->HasTag("__EDITOR_OBJECT__"))
             return;
+
         Track<DeleteComponentAction>(component);
+    });
+
+    SubscribeToEvent(scene, E_DATACOMPONENTADDED, [&](StringHash, VariantMap& args)
+    {
+        if (!trackingEnabled_)
+            return;
+
+        auto node = dynamic_cast<Node*>(args[DataComponentAdded::P_NODE].GetPtr());
+        const ea::string componentType = args[DataComponentAdded::P_DATACOMPONENTTYPE].GetString();
+        auto dataComponent = node->GetDataComponentWrapper(componentType);
+        if (node->HasTag("__EDITOR_OBJECT__"))
+            return;
+
+        Track<CreateDataComponentAction>(dataComponent);
+    });
+
+    SubscribeToEvent(scene, E_DATACOMPONENTREMOVED, [&](StringHash, VariantMap& args)
+    {
+        if (!trackingEnabled_)
+            return;
+
+        auto node = dynamic_cast<Node*>(args[DataComponentRemoved::P_NODE].GetPtr());
+        const ea::string componentType = args[DataComponentAdded::P_DATACOMPONENTTYPE].GetString();
+        auto dataComponent = node->GetDataComponentWrapper(componentType);
+        if (node->HasTag("__EDITOR_OBJECT__"))
+            return;
+
+        Track<DeleteDataComponentAction>(dataComponent);
     });
 }
 

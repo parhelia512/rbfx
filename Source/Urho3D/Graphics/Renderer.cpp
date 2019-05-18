@@ -1129,10 +1129,13 @@ Camera* Renderer::GetShadowCamera()
 {
     MutexLock lock(rendererMutex_);
 
+    if (!shadowCameraScene_)
+        shadowCameraScene_ = MakeShared<Scene>(context_);
+
     assert(numShadowCameras_ <= shadowCameraNodes_.size());
     if (numShadowCameras_ == shadowCameraNodes_.size())
     {
-        SharedPtr<Node> newNode(context_->CreateObject<Node>());
+        Node* newNode = shadowCameraScene_->CreateChild();
         newNode->CreateComponent<Camera>();
         shadowCameraNodes_.push_back(newNode);
     }

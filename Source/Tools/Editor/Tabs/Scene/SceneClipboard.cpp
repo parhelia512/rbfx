@@ -21,6 +21,7 @@
 //
 
 #include <Urho3D/Scene/Component.h>
+#include <Urho3D/Scene/DataComponent.h>
 #include <Urho3D/Scene/Node.h>
 #include <Urho3D/Scene/Scene.h>
 #include "SceneClipboard.h"
@@ -53,6 +54,12 @@ void SceneClipboard::Copy(Component* component)
     component->Save(components_.back());
 }
 
+void SceneClipboard::Copy(DataComponentWrapper* dataComponent)
+{
+    dataComponents_.resize(components_.size() + 1);
+    dataComponent->Save(dataComponents_.back());
+}
+
 PasteResult SceneClipboard::Paste(Node* node)
 {
     PasteResult result;
@@ -60,22 +67,41 @@ PasteResult SceneClipboard::Paste(Node* node)
     for (VectorBuffer& data : components_)
     {
         data.Seek(0);
-        StringHash componentType = data.ReadStringHash();
-        unsigned componentID = data.ReadUInt();
-        Component* component = node->CreateComponent(componentType, componentID < FIRST_LOCAL_ID ? REPLICATED : LOCAL);
-        if (component->Load(data))
+        const StringHash componentType = data.ReadStringHash();
+        const unsigned componentID = data.ReadUInt();
+        if (Component* component = node->CreateComponent(componentType, componentID < FIRST_LOCAL_ID ? REPLICATED : LOCAL))
         {
-            component->ApplyAttributes();
-            result.components_.push_back(component);
+            if (component->Load(data))
+            {
+                component->ApplyAttributes();
+                result.components_.push_back(component);
+            }
+            else
+                component->Remove();
         }
-        else
-            component->Remove();
+    }
+
+    {
+        DataComponentEventScope eventScope(node->GetScene());
+        for (VectorBuffer& data : dataComponents_)
+        {
+            data.Seek(0);
+            ea::string componentType = data.ReadString();
+            if (node->CreateDataComponent(componentType))
+            {
+                SharedPtr<DataComponentWrapper> dataComponent = node->GetDataComponentWrapper(componentType);
+                if (dataComponent->Load(data))
+                    result.dataComponents_.push_back(dataComponent);
+                else
+                    dataComponent->Remove();
+            }
+        }
     }
 
     for (VectorBuffer& nodeData : nodes_)
     {
         nodeData.Seek(0);
-        auto nodeID = nodeData.ReadUInt();
+        const auto nodeID = nodeData.ReadUInt();
         SharedPtr<Node> newNode(node->CreateChild(EMPTY_STRING, nodeID < FIRST_LOCAL_ID ? REPLICATED : LOCAL));
         nodeData.Seek(0);
         if (newNode->Load(nodeData))
@@ -132,8 +158,14 @@ void SceneClipboard::Copy(const ea::vector<WeakPtr<Node>>& nodes)
 
 void SceneClipboard::Copy(const ea::hash_set<WeakPtr<Component>>& components)
 {
-    for (auto& node : components)
-        Copy(node);
+    for (auto& component : components)
+        Copy(component);
+}
+
+void SceneClipboard::Copy(const ea::hash_set<WeakPtr<DataComponentWrapper>>& dataComponents)
+{
+    for (auto& dataComponent : dataComponents)
+        Copy(dataComponent);
 }
 
 }

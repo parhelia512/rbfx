@@ -156,7 +156,7 @@ void Water::CreateScene()
 
     // Create the camera. Set far clip to match the fog. Note: now we actually create the camera node outside
     // the scene, because we want it to be unaffected by scene load / save
-    cameraNode_ = new Node(context_);
+    cameraNode_ = context_->GetDefaultScene()->CreateChild();
     auto* camera = cameraNode_->CreateComponent<Camera>();
     camera->SetFarClip(750.0f);
 

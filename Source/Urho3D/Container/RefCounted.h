@@ -84,11 +84,6 @@ public:
     /// Return pointer to the reference count structure.
     RefCount* RefCountPtr() { return refCount_; }
 
-    /// Set a custom deleter function which will be in charge of deallocating object.
-    void SetDeleter(std::function<void(RefCounted*)> deleter);
-    /// Returns custom deleter of this object.
-    std::function<void(RefCounted*)> GetDeleter() const { return deleter_; }
-
 private:
     /// Pointer to the reference count structure.
     RefCount* refCount_;
