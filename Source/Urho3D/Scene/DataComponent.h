@@ -97,15 +97,15 @@ public:
     /// Register object.
     static void RegisterObject(Urho3D::Context* context) { T::RegisterAttributes(context); }
     /// Remove component from the node.
-    void Remove() override { GetNode()->RemoveDataComponent<T>(); }
+    void Remove() override { GetNode()->template RemoveDataComponent<T>(); }
     /// Return component name.
     const ea::string& GetComponentType() const override { return T::GetTypeNameStatic(); }
     /// Return whether the component is expired.
-    bool IsComponentExpired() const override { return !GetNode() || !GetNode()->HasDataComponent<T>(); }
+    bool IsComponentExpired() const override { return !GetNode() || !GetNode()->template HasDataComponent<T>(); }
     /// Get component data (mutable).
-    T& Data() { return *GetNode()->GetDataComponent<T>(); }
+    T& Data() { return *GetNode()->template GetDataComponent<T>(); }
     /// Get component data (constant).
-    const T& Data() const { return *GetNode()->GetDataComponent<T>(); }
+    const T& Data() const { return *GetNode()->template GetDataComponent<T>(); }
 };
 
 /// Factory and dynamic manager for compile-time data components.
@@ -160,15 +160,15 @@ public:
     /// Connect scene to events.
     void ConnectSceneToEvents(Scene* scene) const override
     {
-        scene->GetRegistry().on_construct<ComponentType>().connect<&Scene::DataComponentAdded<ComponentType>>(scene);
-        scene->GetRegistry().on_destroy<ComponentType>().connect<&Scene::DataComponentRemoved<ComponentType>>(scene);
+        scene->GetRegistry().on_construct<ComponentType>().template connect<&Scene::DataComponentAdded<ComponentType>>(scene);
+        scene->GetRegistry().on_destroy<ComponentType>().template connect<&Scene::DataComponentRemoved<ComponentType>>(scene);
     }
 
     /// Disconnect scene from events.
     void DisconnectSceneFromEvents(Scene* scene) const override
     {
-        scene->GetRegistry().on_construct<ComponentType>().disconnect<&Scene::DataComponentAdded<ComponentType>>(scene);
-        scene->GetRegistry().on_destroy<ComponentType>().disconnect<&Scene::DataComponentRemoved<ComponentType>>(scene);
+        scene->GetRegistry().on_construct<ComponentType>().template disconnect<&Scene::DataComponentAdded<ComponentType>>(scene);
+        scene->GetRegistry().on_destroy<ComponentType>().template disconnect<&Scene::DataComponentRemoved<ComponentType>>(scene);
     }
 
     /// Get EnTT type index of the component.
@@ -255,7 +255,7 @@ template <class T> bool Node::HasDataComponent() const
     if (!IsRegistryValid())
     {
         assert(0);
-        return nullptr;
+        return false;
     }
 
     entt::registry& reg = scene_->GetRegistry();
