@@ -22,11 +22,12 @@
 
 #pragma once
 
+#include "../Container/Ptr.h"
+
 #include <cstddef>
 #include <type_traits>
 
 #include <EASTL/utility.h>
-#include <EASTL/weak_ptr.h>
 
 namespace Urho3D
 {
@@ -71,15 +72,6 @@ template <class T, class U, class Enabled> struct hash<pair<T, U>, Enabled>
     size_t operator()(const pair<T, U>& s) const
     {
         return hash<T>()(s.first) ^ hash<U>()(s.second) * 16777619;
-    }
-};
-
-template <class U>
-struct hash<weak_ptr<U>>
-{
-    size_t operator()(const weak_ptr<U>& value) const
-    {
-        return (size_t)(void*)value.Get();
     }
 };
 

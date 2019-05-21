@@ -22,9 +22,9 @@
 
 #pragma once
 
-#include <EASTL/shared_ptr.h>
 #include <EASTL/vector.h>
 
+#include "../Container/Ptr.h"
 #include "../Container/RefCounted.h"
 #include "../Scene/AnimationDefs.h"
 

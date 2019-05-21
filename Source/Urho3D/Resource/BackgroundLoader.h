@@ -22,10 +22,10 @@
 
 #pragma once
 
-#include <EASTL/shared_ptr.h>
 #include <EASTL/unique_ptr.h>
 #include <EASTL/unordered_map.h>
 
+#include "../Container/Ptr.h"
 #include "../Core/Mutex.h"
 #include "../Container/RefCounted.h"
 #include "../Core/Thread.h"
