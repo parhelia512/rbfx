@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include "../Core/NonCopyable.h"
 
 #include <functional>
 #include <Urho3D/Urho3D.h>
@@ -35,18 +36,13 @@ class RefCounted;
 using RefCount = ea::ref_count_sp_t<RefCounted*, EASTLAllocatorType, ea::default_delete<RefCounted>>;
 
 /// Base class for intrusively reference-counted objects. These are noncopyable and non-assignable.
-class URHO3D_API RefCounted
+class URHO3D_API RefCounted : private NonCopyable
 {
 public:
     /// Construct. Allocate the reference count structure and set an initial self weak reference.
     RefCounted();
     /// Destruct. Mark as expired and also delete the reference count structure if no outside weak references exist.
     virtual ~RefCounted();
-
-    /// Prevent copy construction.
-    RefCounted(const RefCounted& rhs) = delete;
-    /// Prevent assignment.
-    RefCounted& operator =(const RefCounted& rhs) = delete;
 
     /// Increment reference count. Can also be called outside of a SharedPtr for traditional reference counting.
     void AddRef();

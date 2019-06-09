@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2008-2019 the Urho3D project.
+// Copyright (c) 2017-2019 the rbfx project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,50 +22,19 @@
 
 #pragma once
 
-#ifdef URHO3D_IS_BUILDING
-#include "Urho3D.h"
-#else
-#include <Urho3D/Urho3D.h>
-#endif
-
-#include "../Core/NonCopyable.h"
-
 namespace Urho3D
 {
 
-/// Operating system mutual exclusion primitive.
-class URHO3D_API Mutex
+/// Helper to declare non-copyable class.
+class NonCopyable
 {
-public:
+protected:
     /// Construct.
-    Mutex();
-    /// Destruct.
-    ~Mutex();
-
-    /// Acquire the mutex. Block if already acquired.
-    void Acquire();
-    /// Try to acquire the mutex without locking. Return true if successful.
-    bool TryAcquire();
-    /// Release the mutex.
-    void Release();
-
-private:
-    /// Mutex handle.
-    void* handle_;
-};
-
-/// Lock that automatically acquires and releases a mutex.
-class URHO3D_API MutexLock : private NonCopyable
-{
-public:
-    /// Construct and acquire the mutex.
-    explicit MutexLock(Mutex& mutex);
-    /// Destruct. Release the mutex.
-    ~MutexLock();
-
-private:
-    /// Mutex reference.
-    Mutex& mutex_;
+    NonCopyable() = default;
+    /// Disable copy-construct.
+    NonCopyable(const NonCopyable& other) = delete;
+    /// Disable assign.
+    NonCopyable& operator=(const NonCopyable& other) = delete;
 };
 
 }
